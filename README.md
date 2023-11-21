@@ -54,4 +54,3 @@ W przypadku, gdy chcemy użyć konkretnego hosta, wystarczy się na niego zalogo
 📕 [Packit](https://linux.die.net/man/8/packit)
 📕 [Containernet](https://containernet.github.io/)
 📕 [M. Peuster, H. Karl, and S. v. Rossem: MeDICINE: Rapid Prototyping of Production-Ready Network Services in Multi-PoP Environments. IEEE Conference on Network Function Virtualization and Software Defined Networks (NFV-SDN), Palo Alto, CA, USA, pp. 148-153. doi: 10.1109/NFV-SDN.2016.7919490. (2016)](https://ieeexplore.ieee.org/document/7919490)
-
