@@ -9,9 +9,10 @@ Do przygotowania środowiska dla sterownika posłużono się maszyną wirtualną
 Kroki przygotowawcze:
 
 1. Pobierz i zainstaluj wybrane narzędzie hypervisora (np. [Virtualbox](https://www.virtualbox.org/) lub [Vmware Player](https://www.vmware.com/products/workstation-player.html))
-2. [Pobierz](#foo) i zainstaluj maszynę jako dysk maszyny wirtualnej w oprogramowaniu hypervisora
-3. Zmień tryb karty sieciowej maszyny na "Bridged"
-4. Uruchom maszynę wirtualną
+2. Dodaj nową maszynę wirtualną i nadaj jej nazwę
+3. [Pobierz](#foo) i dodaj dysk maszyny wirtualnej
+4. Zmień tryb karty sieciowej maszyny na "Bridged"
+5. Uruchom maszynę wirtualną
 
 ### Emulator Sieci - Containernet
 
