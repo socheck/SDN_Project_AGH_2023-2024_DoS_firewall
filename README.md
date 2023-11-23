@@ -22,10 +22,11 @@ Kroki przygotowawcze - Instalacja bare metal:
 
 1. Zainstaluj dystrybucję linuxa - Ubuntu (potzebne jest wsparcie dla generatora ruchu). Zalecana wersja przez twórców Containernet to [LTS 20.04](https://releases.ubuntu.com/focal/). Dowolny wybór wersji - Desktop/Server. Najpewniej istnieje możliwość użycia [WSL](https://learn.microsoft.com/en-us/windows/wsl/about), natomiast zalecane jest wykorzystanie oddzielnej maszyny wirtualnej
 2. `sudo apt update`
-3. `sudo apt-get install git-all -y`
-4. `sudo apt-get install ansible -y`
-5. `git clone https://github.com/containernet/containernet.git`
-6. `sudo ansible-playbook -i "localhost," -c local containernet/ansible/install.yml`
+3. `sudo apt upgrade`
+4. `sudo apt-get install git-all -y`
+5. `sudo apt-get install ansible -y`
+6. `git clone https://github.com/containernet/containernet.git`
+7. `sudo ansible-playbook -i "localhost," -c local containernet/ansible/install.yml`
 
 Uruchomienie topologii sieciowej:
 `sudo python3 examples/nazwa_pliku_topologii.py`
