@@ -24,7 +24,7 @@ def create_query(
         wait_time = 0,
         size = 1500,
         count = 1000):
-    command = f"sudo packit -t {layer_4_proto} -s {source_ip_addr} -d {destination_ip_addr} -S {source_port} -D {dest_port} -Z {size} -c {count} -w {wait_time}"
+    command = f"sudo packit -t {layer_4_proto} -s {source_ip_addr} -d {destination_ip_addr} -S {source_port} -D {dest_port} -Z {size} -c {count} -w {wait_time} &"
     if flag:
         command += " -F S"
     return command
