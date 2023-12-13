@@ -4,6 +4,7 @@ from mininet.node import Controller, OVSKernelSwitch, RemoteController
 from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.log import info, setLogLevel
+from normal_traffic import *
 
 setLogLevel('info')
 
@@ -84,6 +85,11 @@ net.ping([PC5, PC3,])
 info('*** Running CLI\n')
 CLI(net)
 info('*** Stopping network')
+
+PC2.cmd(create_query(source_ip_addr="10.0.0.2", destination_ip_addr="10.0.0.3", wait_time=1))
+PC2.cmd(create_query(source_ip_addr="10.0.0.2", destination_ip_addr="10.0.0.4", wait_time=1))
+PC2.cmd(create_query(source_ip_addr="10.0.0.2", destination_ip_addr="10.0.0.5", wait_time=1))
+PC5.cmd(create_query(source_ip_addr="10.0.0.5", destination_ip_addr="10.0.0.3", wait_time=1))
 net.stop()
 
 
