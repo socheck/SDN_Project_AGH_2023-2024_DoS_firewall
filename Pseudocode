@@ -1,0 +1,72 @@
+RESET_INTERVAL = 120
+NUMBER_OF_PACKETS = 0
+TH_PACKETS = 20
+TH_TIME = 2
+HARD_TIME = 10
+TIMER = 0
+PACKET_RATIO = NUMBER_OF_PACKETS/TIMER
+THRESHOLD = TH_PACKETS/TH_TIME
+
+operation_list = {}
+
+function process_packet(packet):
+    current_time = get_current_time()
+
+    if packet.type == "TCP SYN":
+        
+        if flow_key not in operation_list:
+	    PACKET_RATIO = 1 # time here is "0s"
+            add_flow_to_operation_list(flow_key, packet, current_time, PACKET_RATIO)
+            forward_packet(packet)
+
+        else:
+            packet_ratio = update_flow_in_operation_list(flow_key, packet, current_time)
+
+            if packet_ratio >= THRESHOLD:
+                drop_packet_and_set_hard_time(flow_key)
+            else:
+                forward_packet(packet)
+
+    else:
+	forward_packet(packet)
+
+function add_flow_to_operation_list(flow_key, packet, current_time, packet_ratio):
+    operation_list[flow_key] = {
+        "number_of_packets": 1,
+        "date": current_time,
+	"ratio": packet_ratio,
+        "source_address": packet.source_address,
+        "destination_address": packet.destination_address
+    }
+
+function update_flow_in_operation_list(flow_key, packet, current_time):
+    operation = operation_list[flow_key]
+    operation["number_of_packets"] += 1
+
+    time_difference = current_time - operation["date"]
+    packet_ratio = operation["number_of_packets"] / time_difference
+
+    operation["date"] = current_time
+    operation["packet_ratio"] = packet_ratio
+
+    return packet_ratio
+
+function forward_packet(packet):
+   fwd_packet(packet)
+
+function drop_packet_and_set_hard_time(packet):
+    drop_packet(packet) 
+    mod_flow(packet, HARD_TIME)
+
+function reset_counters(): # new, clearing the counters after specific time (for now 120s)
+    for ip in request_count.keys():
+        request_count[ip] = 0
+
+    for ip in ip_connections.keys():
+        ip_connections[ip] = 0
+
+while true:
+    packet = receive_packet()
+    process_packet(packet)
+    if time_since_last_reset >= RESET_INTERVAL:
+        reset_counters
