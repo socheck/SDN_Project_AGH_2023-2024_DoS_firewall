@@ -72,6 +72,10 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 	protected IFloodlightProviderService floodlightProvider;
 
 	protected static Logger logger;
+	
+	HashMap<String, Integer> checkMap = new HashMap<>();
+	
+	int counter = 2;
 
 	@Override
 	public String getName() {
@@ -103,10 +107,7 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 
 	IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
 
-		HashMap<String, Integer> checkMap = new HashMap<>();
 		
-		int counter = 2;
-
 		logger.info("************* NEW PACKET IN *************");
 
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
