@@ -72,10 +72,11 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 	protected IFloodlightProviderService floodlightProvider;
 
 	protected static Logger logger;
-	
-	HashMap<String, Integer> checkMap = new HashMap<>();
-	
-	int counter = 2;
+
+	HashMap<String, MacAddressInfo> checkMap = new HashMap<>();
+
+	int counter = 0;
+	int test_time = 100; // <-- TU ZMIENIONE // na razie wartosc testowa dla testow struktury
 
 	@Override
 	public String getName() {
@@ -102,21 +103,46 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 
 	}
 
+	// TU ZMIENIONE // dodana klasa do utworzenia struktury Hashmap z 2 wartosciami -> mac_address: counter, time
+	class MacAddressInfo {
+		private int counter;
+		private long timestamp;
+
+		public MacAddressInfo(int counter, long timestamp) {
+			this.counter = counter;
+			this.timestamp = timestamp;
+		}
+
+		public int getCounter() {
+			return counter;
+		}
+
+		public void setCounter(int counter) {
+			this.counter = counter;
+		}
+
+		public long getTimestamp() {
+			return timestamp;
+		}
+
+		public void setTimestamp(long timestamp) {
+			this.timestamp = timestamp;
+		}
+	}
+
 	@Override
 	public net.floodlightcontroller.core.IListener.Command receive(
 
 	IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
 
-		
 		logger.info("************* NEW PACKET IN *************");
 
-		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
+				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 		String srcMac = eth.getSourceMACAddress().toString();
-		
+
 		// S - 02
-
 		// R - 04
-
 		// A - 16
 
 		if (eth.getPayload() instanceof IPv4) {
@@ -136,24 +162,31 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 				if (tcp.getFlags() == 2) {
 
 					logger.info("Otrzymano pakiet TCP z flaga SYN");
-					logger.info("srcMac {}", srcMac );
-					logger.info("counter {}", counter);
-					logger.info("Hash mapa {}", checkMap );
-					
+//					logger.info("srcMac {}", srcMac);
+//					logger.info("counter {}", counter);
+//					logger.info("Hash mapa {}", checkMap);
+
 					if (checkMap.containsKey(srcMac)) {
 						logger.info("Juz kiedys taki mac byl: {}", srcMac);
-						checkMap.put(srcMac, counter);
+						test_time += 1; // <-- TU ZMIENIONE // na razie jest to tylko wartosc testowa do sprawdzenia struktury
 						counter += 1;
-						logger.info("Counter {}", counter);
+						// struktura + odczytywanie z niej <-- TU ZMIENIONE
+						checkMap.put(srcMac, new MacAddressInfo(counter,
+								test_time));
+						logger.info("Counter: {}", checkMap.get(srcMac).getCounter());
+						logger.info("Testowy time stamp DO ZMIANY!: {}", checkMap.get(srcMac).getTimestamp());
+
 					} else {
 						logger.info("Pierwszy raz widze mac: {}", srcMac);
-						checkMap.put(srcMac, counter);
+						// <-- TU ZMIENIONE
+						checkMap.put(srcMac, new MacAddressInfo(counter,
+								test_time));
 					}
-					
+
+
 					return Command.STOP;
 
 				}
-				
 
 			}
 
