@@ -51,13 +51,13 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 
 	protected static Logger logger;
 
-	HashMap<String, MacAddressInfo> checkMap = new HashMap<>();
+	HashMap<String, MacAddressInfo> checkMap = new HashMap<>(); //przetrzymuje adres mac: counter, czas
+	HashMap<String, MacAddressBlacklist> blacklistMap = new HashMap<>();
 
 	int counter = 0; //zmienna przechowujaca licznik
 	long actual_time = 0; //aktualny czas systemowy
 	int threshold = 100; //minimalny odstep miedzy pakietami SYN[ms]
 	long hard_time = 10000; //timeout adresu MAC po ataku SYN[ms]
-
 
 	@Override
 	public String getName() {
@@ -104,11 +104,39 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 		public void setTimestamp(long timestamp) {
 			this.timestamp = timestamp;
 		}
+		
+	}
+	
+	class MacAddressBlacklist {
+		
+		private boolean blacklisted;
+		private long blacklist_timer;
+		
+		public MacAddressBlacklist(boolean blacklisted, long blacklist_timer) {
+			this.blacklisted = blacklisted;
+			this.blacklist_timer = actual_time;
+		}
+		
+		public boolean getBlacklisted() {
+			return blacklisted;
+		}
+	
+		public void setBlacklisted(boolean blacklisted) {
+			this.blacklisted = blacklisted;
+		}
+		
+		public long getBlacklistTimer() {
+			return blacklist_timer;
+		}
+	
+		public void setBlacklistTimer(int blacklist_timer) {
+			this.blacklist_timer = blacklist_timer;
+		}
 	}
 
 	@Override
 	public net.floodlightcontroller.core.IListener.Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-		logger.info("************* NEW PACKET IN *************");
+//		logger.info("************* NEW PACKET IN *************");
 
 		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 		String srcMac = eth.getSourceMACAddress().toString();
@@ -129,31 +157,77 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 					actual_time = System.currentTimeMillis();
 
 					if (checkMap.containsKey(srcMac)) {
-						counter = checkMap.get(srcMac).getCounter(); //pobranie aktualnej wartosci licznika dla danego adresu MAC
-						counter += 1; //zaktualizowanie licznika
-						if (counter >= 20){
-							long time_diff = actual_time - checkMap.get(srcMac).getTimestamp();
-							if (time_diff <= 100){
-								//TODO - dodac dany srcMac do blacklisty
-								logger.info("Adres MAC: {} zostal dodany do blacklisty", srcMac);
-								checkMap.put(srcMac, new MacAddressInfo(0, actual_time)); //wyzerowanie wystepowan po dodaniu do blacklisty
+						
+						if(!blacklistMap.containsKey(srcMac)) { // adres MAC nie jest zblacklistowany
+							
+							counter = checkMap.get(srcMac).getCounter(); //pobranie aktualnej wartosci licznika dla danego adresu MAC
+							counter += 1; //zaktualizowanie licznika
+							
+							if (counter >= 5){ // krotsze czasy aby zaobserowac blacklisting
+								
+								long time_diff = actual_time - checkMap.get(srcMac).getTimestamp();
+								logger.info("Time diff: {}", time_diff);
+								
+								if (time_diff <= 1500){  // krotsze czasy aby zaobserowac blacklisting
+									
+									blacklistMap.put(srcMac, new MacAddressBlacklist(true, actual_time)); // ustawienie wartosci true i czas kiedy zostal zblacklistowany
+									
+									//TODO - usuniecie flowu z przelacznika, do poprawy to tutaj
+									//Flows.deleteFlow(sw, stringToMacAddress(srcMac));
+									
+									logger.info("Adres MAC: {} zostal dodany do blacklisty", srcMac);
+									checkMap.put(srcMac, new MacAddressInfo(0, actual_time)); //wyzerowanie wystepowan po dodaniu do blacklisty
+								}
 							}
+							
+							else {
+								checkMap.put(srcMac, new MacAddressInfo(counter, actual_time));
+							}
+							
+							//wypisanie danych struktury
+//							logger.info("Adres MAC(ponowne wystapienie): {}", srcMac);
+//							logger.info("Counter: {}", checkMap.get(srcMac).getCounter());
+//							logger.info("Timestamp: {}", checkMap.get(srcMac).getTimestamp());
+							
 						}
-						else {
-							checkMap.put(srcMac, new MacAddressInfo(counter, actual_time));
+						
+						else { //maszyna JEST zblacklistowana
+							
+							// TODO: obsluga zmniejszania czasu z blacklisty i sprawdzanie czy juz minelo na tyle
+							
+							for (String macAddress : blacklistMap.keySet()) { // sprawdzamy wszytskie wpisy w tablicy blacklistujacej nie tylko dla maca tego
+								long time_diff = System.currentTimeMillis() - blacklistMap.get(srcMac).getBlacklistTimer();
+								MacAddressBlacklist info = blacklistMap.get(macAddress);
+								
+								if (time_diff > 5000) {
+									logger.info("Odblacklistowujemy :D");
+									blacklistMap.remove(srcMac);
+								} else {
+									logger.info("Adres MAC jest zblacklistowany!!!! - blokujemy, zostalo {} czasu", 5000 - time_diff);
+								}
+							} 	
 						}
-						//wypisanie danych struktury
-						logger.info("Adres MAC(ponowne wystapienie): {}", srcMac);
-						logger.info("Counter: {}", checkMap.get(srcMac).getCounter());
-						logger.info("Timestamp: {}", checkMap.get(srcMac).getTimestamp());
 
 					} 
 					else {
 						checkMap.put(srcMac, new MacAddressInfo(1, actual_time));
+						
+						for (String macAddress : blacklistMap.keySet()) { // sprawdzamy wszytskie wpisy w tablicy blacklistujacej nie tylko dla maca tego
+							long time_diff = System.currentTimeMillis() - blacklistMap.get(srcMac).getBlacklistTimer();
+							MacAddressBlacklist info = blacklistMap.get(macAddress);
+							
+							if (time_diff > 5000) {
+								logger.info("Odblacklistowujemy :D");
+								blacklistMap.remove(srcMac);
+							} else {
+								logger.info("Adres MAC jest zblacklistowany!!!! - blokujemy, zostalo {} czasu", 5000 - time_diff);
+							}
+						} 	
+						
 						//wypisanie danych struktury
-						logger.info("Adres MAC(pierwsze wystapienie): {}", srcMac);
-						logger.info("Counter: {}", checkMap.get(srcMac).getCounter());
-						logger.info("Timestamp: {}", checkMap.get(srcMac).getTimestamp());
+//						logger.info("Adres MAC(pierwsze wystapienie): {}", srcMac);
+//						logger.info("Counter: {}", checkMap.get(srcMac).getCounter());
+//						logger.info("Timestamp: {}", checkMap.get(srcMac).getTimestamp());
 					}
 					return Command.STOP;
 				}
@@ -173,6 +247,7 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 
 		return Command.STOP;
 	}
+	
 
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
