@@ -3,55 +3,34 @@ package pl.edu.agh.kt;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
 import java.util.HashMap;
-
 import java.util.Map;
 
 import org.projectfloodlight.openflow.protocol.OFFlowStatsEntry;
 import org.projectfloodlight.openflow.protocol.OFFlowStatsReply;
 import org.projectfloodlight.openflow.protocol.OFFlowStatsRequest;
-
 import org.projectfloodlight.openflow.protocol.OFMessage;
-
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
-
 import org.projectfloodlight.openflow.protocol.OFType;
-
 import org.projectfloodlight.openflow.protocol.match.MatchField;
-
 import org.projectfloodlight.openflow.protocol.match.Match;
-
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.TableId;
-
 import org.projectfloodlight.openflow.types.IpProtocol;
-
 import org.projectfloodlight.openflow.types.OFPort;
-
 import org.projectfloodlight.openflow.types.U64;
 
 import net.floodlightcontroller.core.FloodlightContext;
-
 import net.floodlightcontroller.core.IOFMessageListener;
-
 import net.floodlightcontroller.core.IOFSwitch;
-
 import net.floodlightcontroller.core.module.FloodlightModuleContext;
-
 import net.floodlightcontroller.core.module.FloodlightModuleException;
-
 import net.floodlightcontroller.core.module.IFloodlightModule;
-
 import net.floodlightcontroller.core.module.IFloodlightService;
-
 import net.floodlightcontroller.core.IFloodlightProviderService;
-
 import net.floodlightcontroller.packet.Ethernet;
-
 import net.floodlightcontroller.packet.IPv4;
-
 import net.floodlightcontroller.packet.TCP;
 
 import java.util.ArrayList;
@@ -60,7 +39,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
-
 import org.slf4j.LoggerFactory;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -75,35 +53,33 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 
 	HashMap<String, MacAddressInfo> checkMap = new HashMap<>();
 
-	int counter = 0;
-	int test_time = 100; // <-- TU ZMIENIONE // na razie wartosc testowa dla testow struktury
+	int counter = 0; //zmienna przechowujaca licznik
+	long actual_time = 0; //aktualny czas systemowy
+	int threshold = 100; //minimalny odstep miedzy pakietami SYN[ms]
+	long hard_time = 10000; //timeout adresu MAC po ataku SYN[ms]
+
 
 	@Override
 	public String getName() {
 
 		return SdnLabListener.class.getSimpleName();
-
 	}
 
 	@Override
 	public boolean isCallbackOrderingPrereq(OFType type, String name) {
-
 		// TODO Auto-generated method stub
 
 		return false;
-
 	}
 
 	@Override
 	public boolean isCallbackOrderingPostreq(OFType type, String name) {
-
 		// TODO Auto-generated method stub
 
 		return false;
-
 	}
 
-	// TU ZMIENIONE // dodana klasa do utworzenia struktury Hashmap z 2 wartosciami -> mac_address: counter, time
+	//klasa do utworzenia struktury Hashmap z 2 wartosciami -> mac_address: counter, time
 	class MacAddressInfo {
 		private int counter;
 		private long timestamp;
@@ -131,14 +107,10 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 	}
 
 	@Override
-	public net.floodlightcontroller.core.IListener.Command receive(
-
-	IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
-
+	public net.floodlightcontroller.core.IListener.Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
 		logger.info("************* NEW PACKET IN *************");
 
-		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx,
-				IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
+		Ethernet eth = IFloodlightProviderService.bcStore.get(cntx, IFloodlightProviderService.CONTEXT_PI_PAYLOAD);
 		String srcMac = eth.getSourceMACAddress().toString();
 
 		// S - 02
@@ -146,50 +118,46 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 		// A - 16
 
 		if (eth.getPayload() instanceof IPv4) {
-
 			IPv4 ipv4 = (IPv4) eth.getPayload();
 
 			if (ipv4.getProtocol().equals(IpProtocol.TCP)) {
-
 				TCP tcp = (TCP) ipv4.getPayload();
-
-				// logger.info(tcp.getFlags());
-
-				// logger.info("Frame: TCP get flags {}", tcp.getFlags());
-
 				logger.info("Frame: TCP get flags {}", tcp.getFlags());
 
 				if (tcp.getFlags() == 2) {
-
 					logger.info("Otrzymano pakiet TCP z flaga SYN");
-//					logger.info("srcMac {}", srcMac);
-//					logger.info("counter {}", counter);
-//					logger.info("Hash mapa {}", checkMap);
+					actual_time = System.currentTimeMillis();
 
 					if (checkMap.containsKey(srcMac)) {
-						logger.info("Juz kiedys taki mac byl: {}", srcMac);
-						test_time += 1; // <-- TU ZMIENIONE // na razie jest to tylko wartosc testowa do sprawdzenia struktury
-						counter += 1;
-						// struktura + odczytywanie z niej <-- TU ZMIENIONE
-						checkMap.put(srcMac, new MacAddressInfo(counter,
-								test_time));
+						counter = checkMap.get(srcMac).getCounter(); //pobranie aktualnej wartosci licznika dla danego adresu MAC
+						counter += 1; //zaktualizowanie licznika
+						if (counter >= 20){
+							long time_diff = actual_time - checkMap.get(srcMac).getTimestamp();
+							if (time_diff <= 100){
+								//TODO - dodac dany srcMac do blacklisty
+								logger.info("Adres MAC: {} zostal dodany do blacklisty", srcMac);
+								checkMap.put(srcMac, new MacAddressInfo(0, actual_time)); //wyzerowanie wystepowan po dodaniu do blacklisty
+							}
+						}
+						else {
+							checkMap.put(srcMac, new MacAddressInfo(counter, actual_time));
+						}
+						//wypisanie danych struktury
+						logger.info("Adres MAC(ponowne wystapienie): {}", srcMac);
 						logger.info("Counter: {}", checkMap.get(srcMac).getCounter());
-						logger.info("Testowy time stamp DO ZMIANY!: {}", checkMap.get(srcMac).getTimestamp());
+						logger.info("Timestamp: {}", checkMap.get(srcMac).getTimestamp());
 
-					} else {
-						logger.info("Pierwszy raz widze mac: {}", srcMac);
-						// <-- TU ZMIENIONE
-						checkMap.put(srcMac, new MacAddressInfo(counter,
-								test_time));
+					} 
+					else {
+						checkMap.put(srcMac, new MacAddressInfo(1, actual_time));
+						//wypisanie danych struktury
+						logger.info("Adres MAC(pierwsze wystapienie): {}", srcMac);
+						logger.info("Counter: {}", checkMap.get(srcMac).getCounter());
+						logger.info("Timestamp: {}", checkMap.get(srcMac).getTimestamp());
 					}
-
-
 					return Command.STOP;
-
 				}
-
 			}
-
 		}
 
 		PacketExtractor extractor = new PacketExtractor(cntx, msg);
@@ -197,70 +165,49 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 		// TODO LAB 6
 
 		OFPacketIn pin = (OFPacketIn) msg;
-
 		OFPort outPort;
-
 		outPort = OFPort.of(extractor.getDstPort());
 
 		Flows.simpleAdd(sw, pin, cntx, outPort);
-
 		// StatisticsCollector.getInstance(sw, cntx);
 
 		return Command.STOP;
-
 	}
 
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleServices() {
-
 		// TODO Auto-generated method stub
 
 		return null;
-
 	}
 
 	@Override
 	public Map<Class<? extends IFloodlightService>, IFloodlightService> getServiceImpls() {
-
 		// TODO Auto-generated method stub
 
 		return null;
-
 	}
 
 	@Override
 	public Collection<Class<? extends IFloodlightService>> getModuleDependencies() {
-
 		Collection<Class<? extends IFloodlightService>> l = new ArrayList<Class<? extends IFloodlightService>>();
 
 		l.add(IFloodlightProviderService.class);
 
 		return l;
-
 	}
 
 	@Override
-	public void init(FloodlightModuleContext context)
-
-	throws FloodlightModuleException {
-
-		floodlightProvider = context
-
-		.getServiceImpl(IFloodlightProviderService.class);
+	public void init(FloodlightModuleContext context) throws FloodlightModuleException {
+		floodlightProvider = context.getServiceImpl(IFloodlightProviderService.class);
 
 		logger = LoggerFactory.getLogger(SdnLabListener.class);
-
 	}
 
 	@Override
-	public void startUp(FloodlightModuleContext context)
-
-	throws FloodlightModuleException {
-
+	public void startUp(FloodlightModuleContext context) throws FloodlightModuleException {
 		floodlightProvider.addOFMessageListener(OFType.PACKET_IN, this);
 
 		logger.info("******************* START **************************");
-
 	}
-
 }
