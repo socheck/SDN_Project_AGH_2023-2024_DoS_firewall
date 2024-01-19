@@ -133,6 +133,18 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 			this.blacklist_timer = blacklist_timer;
 		}
 	}
+	
+    public MacAddress stringToMacAddress(String macString) {
+        // Example MAC address format: "00:1A:2B:3C:4D:5E"
+        String[] parts = macString.split(":");
+        byte[] macBytes = new byte[6];
+
+        for (int i = 0; i < 6; i++) {
+            macBytes[i] = (byte) Integer.parseInt(parts[i], 16);
+        }
+
+        return MacAddress.of(macBytes);
+    }
 
 	@Override
 	public net.floodlightcontroller.core.IListener.Command receive(IOFSwitch sw, OFMessage msg, FloodlightContext cntx) {
@@ -173,15 +185,37 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 									blacklistMap.put(srcMac, new MacAddressBlacklist(true, actual_time)); // ustawienie wartosci true i czas kiedy zostal zblacklistowany
 									
 									//TODO - usuniecie flowu z przelacznika, do poprawy to tutaj
-									//Flows.deleteFlow(sw, stringToMacAddress(srcMac));
+									Flows.deleteFlow(sw, stringToMacAddress(srcMac));
 									
 									logger.info("Adres MAC: {} zostal dodany do blacklisty", srcMac);
 									checkMap.put(srcMac, new MacAddressInfo(0, actual_time)); //wyzerowanie wystepowan po dodaniu do blacklisty
+								} else {
+									
+									// przepusc
+									
+									PacketExtractor extractor = new PacketExtractor(cntx, msg);
+
+									OFPacketIn pin = (OFPacketIn) msg;
+									OFPort outPort;
+									outPort = OFPort.of(extractor.getDstPort());
+
+									Flows.simpleAdd(sw, pin, cntx, outPort);
+									
 								}
 							}
 							
 							else {
 								checkMap.put(srcMac, new MacAddressInfo(counter, actual_time));
+								
+								// przepusc
+								
+								PacketExtractor extractor = new PacketExtractor(cntx, msg);
+
+								OFPacketIn pin = (OFPacketIn) msg;
+								OFPort outPort;
+								outPort = OFPort.of(extractor.getDstPort());
+
+								Flows.simpleAdd(sw, pin, cntx, outPort);
 							}
 							
 							//wypisanie danych struktury
@@ -202,6 +236,8 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 								if (time_diff > 5000) {
 									logger.info("Odblacklistowujemy :D");
 									blacklistMap.remove(srcMac);
+									
+									
 								} else {
 									logger.info("Adres MAC jest zblacklistowany!!!! - blokujemy, zostalo {} czasu", 5000 - time_diff);
 								}
@@ -216,7 +252,7 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 							long time_diff = System.currentTimeMillis() - blacklistMap.get(srcMac).getBlacklistTimer();
 							MacAddressBlacklist info = blacklistMap.get(macAddress);
 							
-							if (time_diff > 5000) {
+							if (time_diff > 10000) {
 								logger.info("Odblacklistowujemy :D");
 								blacklistMap.remove(srcMac);
 							} else {
@@ -228,21 +264,59 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 //						logger.info("Adres MAC(pierwsze wystapienie): {}", srcMac);
 //						logger.info("Counter: {}", checkMap.get(srcMac).getCounter());
 //						logger.info("Timestamp: {}", checkMap.get(srcMac).getTimestamp());
+						
+						// przepusc
+						
+						PacketExtractor extractor = new PacketExtractor(cntx, msg);
+
+						OFPacketIn pin = (OFPacketIn) msg;
+						OFPort outPort;
+						outPort = OFPort.of(extractor.getDstPort());
+
+						Flows.simpleAdd(sw, pin, cntx, outPort);
+						
 					}
 					return Command.STOP;
 				}
+				
+				// jezeli nie TCP SYN to przepusc
+				
+				PacketExtractor extractor = new PacketExtractor(cntx, msg);
+
+				OFPacketIn pin = (OFPacketIn) msg;
+				OFPort outPort;
+				outPort = OFPort.of(extractor.getDstPort());
+
+				Flows.simpleAdd(sw, pin, cntx, outPort);
+				
+				return Command.STOP;
 			}
+		} 
+		else {
+			
+			// przepuszczenie dla ARP
+			
+			PacketExtractor extractor = new PacketExtractor(cntx, msg);
+
+			OFPacketIn pin = (OFPacketIn) msg;
+			OFPort outPort;
+			outPort = OFPort.of(extractor.getDstPort());
+
+			Flows.simpleAdd(sw, pin, cntx, outPort);
+			
+			return Command.STOP;
+			
 		}
 
 		PacketExtractor extractor = new PacketExtractor(cntx, msg);
-
-		// TODO LAB 6
 
 		OFPacketIn pin = (OFPacketIn) msg;
 		OFPort outPort;
 		outPort = OFPort.of(extractor.getDstPort());
 
 		Flows.simpleAdd(sw, pin, cntx, outPort);
+		
+		
 		// StatisticsCollector.getInstance(sw, cntx);
 
 		return Command.STOP;
