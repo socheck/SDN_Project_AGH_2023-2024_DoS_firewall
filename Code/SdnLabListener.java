@@ -134,8 +134,8 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 		}
 	}
 	
-    public MacAddress stringToMacAddress(String macString) {
-        // Example MAC address format: "00:1A:2B:3C:4D:5E"
+	// do usuwania flowow z przelacznika (wczesniej rzutowalismy mac na str)
+    public MacAddress strToMac(String macString) {
         String[] parts = macString.split(":");
         byte[] macBytes = new byte[6];
 
@@ -185,7 +185,7 @@ public class SdnLabListener implements IFloodlightModule, IOFMessageListener {
 									blacklistMap.put(srcMac, new MacAddressBlacklist(true, actual_time)); // ustawienie wartosci true i czas kiedy zostal zblacklistowany
 									
 									//TODO - usuniecie flowu z przelacznika, do poprawy to tutaj
-									Flows.deleteFlow(sw, stringToMacAddress(srcMac));
+									Flows.deleteFlow(sw, strToMac(srcMac));
 									
 									logger.info("Adres MAC: {} zostal dodany do blacklisty", srcMac);
 									checkMap.put(srcMac, new MacAddressInfo(0, actual_time)); //wyzerowanie wystepowan po dodaniu do blacklisty
