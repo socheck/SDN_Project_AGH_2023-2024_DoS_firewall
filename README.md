@@ -47,7 +47,7 @@ W przypadku, gdy chcemy użyć konkretnego hosta, wystarczy się na niego zalogo
 
 ## Topologia
 
-![Alt text](sdn_topology.png)
+![Alt text](Images/sdn_topology.png)
 
 ## Literatura
 
