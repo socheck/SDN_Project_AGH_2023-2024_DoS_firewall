@@ -565,7 +565,6 @@ public class Flows {
 		Match.Builder mb = sw.getOFFactory().buildMatch();
 		mb.setExact(MatchField.ETH_TYPE, EthType.IPv4) 
 			.setExact(MatchField.IP_PROTO, IpProtocol.TCP) 
-			//.setExact(MatchField.BSN_TCP_FLAGS,  U16.of(0x0002))
 			.setExact(MatchField.ETH_SRC, srcMac); 
 		// fmb.setMatch(m) // Commented out as we are not using port specific match
 		fmb.setMatch(mb.build()) // Use the match builder directly
